@@ -1,110 +1,67 @@
-// File: src/RoseDay.js
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Text, Float, Sparkles, MeshTransmissionMaterial, Environment } from '@react-three/drei';
+import { Text, Float, Sparkles, useGLTF, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
-// --- COMPONENT: The Procedural Rose ---
-function CrystalRose({ bloomProgress, onClick }) {
-  const group = useRef();
-  
-  const petals = useMemo(() => {
-    return new Array(8).fill(0).map((_, i) => ({
-      angle: (i / 8) * Math.PI * 2,
-      scale: 0.8 + Math.random() * 0.4,
-      layer: i % 2 === 0 ? 1 : 2 
-    }));
-  }, []);
+// --- COMPONENT: The Rose Model with "Bud" Logic ---
+function RoseModel({ bloomProgress, onClick }) {
+  const { scene } = useGLTF('/rose.glb'); 
+  const roseRef = useRef();
+
+  // Clone the scene
+  const clone = useMemo(() => scene.clone(), [scene]);
 
   useFrame((state, delta) => {
-    if(group.current) {
-        group.current.rotation.y += delta * 0.2;
-        group.current.rotation.z = Math.sin(state.clock.elapsedTime) * 0.05;
+    if (roseRef.current) {
+      // 1. ANIME: Smoothly interpolate the current bloom state
+      // We use a "lerp" helper to make the movement smooth, not choppy
+      
+      // Calculate target scales based on bloom progress (0.0 to 1.0)
+      // BUD STATE (0%): Very thin (0.1), slightly short (0.5)
+      // BLOOM STATE (100%): Full size (1.0, 1.0)
+      const targetScaleX = 0.1 + (bloomProgress * 0.9); // Ends at 1.0
+      const targetScaleY = 0.5 + (bloomProgress * 0.5); // Ends at 1.0
+      const targetScaleZ = 0.1 + (bloomProgress * 0.9); // Ends at 1.0
+
+      // Apply smoothness
+      roseRef.current.scale.x = THREE.MathUtils.lerp(roseRef.current.scale.x, targetScaleX, delta * 2);
+      roseRef.current.scale.y = THREE.MathUtils.lerp(roseRef.current.scale.y, targetScaleY, delta * 2);
+      roseRef.current.scale.z = THREE.MathUtils.lerp(roseRef.current.scale.z, targetScaleZ, delta * 2);
+
+      // 2. ROTATION: Spin faster when small, slow down when fully bloomed
+      // If bloom is 0, spin speed is 2. If bloom is 1, spin speed is 0.5
+      const spinSpeed = 2 - (bloomProgress * 1.5);
+      roseRef.current.rotation.y += delta * spinSpeed;
+
+      // 3. BOBBING: Gentle floating
+      roseRef.current.position.y = Math.sin(state.clock.elapsedTime) * 0.1 - 0.5; // -0.5 to center it
     }
   });
 
   return (
-    <group 
-        ref={group} 
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-        onPointerOver={() => document.body.style.cursor = 'pointer'}
-        onPointerOut={() => document.body.style.cursor = 'auto'}
-    >
-      {/* Stem */}
-      <mesh position={[0, -2, 0]}>
-        <cylinderGeometry args={[0.05, 0.1, 4, 8]} />
-        <meshStandardMaterial color="#228b22" roughness={0.4} />
-      </mesh>
-
-      {/* Thorns */}
-      <mesh position={[0.1, -1, 0]} rotation={[0, 0, -0.5]}>
-         <coneGeometry args={[0.05, 0.2, 4]} />
-         <meshStandardMaterial color="#1a6b1a" />
-      </mesh>
-      <mesh position={[-0.1, -2.5, 0.2]} rotation={[0.5, 0, 0.5]}>
-         <coneGeometry args={[0.05, 0.2, 4]} />
-         <meshStandardMaterial color="#1a6b1a" />
-      </mesh>
-
-      {/* Petals */}
-      {petals.map((p, i) => (
-        <Petal 
-          key={i} 
-          angle={p.angle} 
-          layer={p.layer} 
-          bloomProgress={bloomProgress} 
-        />
-      ))}
-      
-      {/* Center Heart */}
-      <mesh position={[0, 0.2, 0]}>
-         <sphereGeometry args={[0.3, 16, 16]} />
-         <meshBasicMaterial color="#ff0044" toneMapped={false} />
-      </mesh>
-    </group>
+    <primitive 
+      ref={roseRef}
+      object={clone} 
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      // Initial Scale (Start as a tiny bud)
+      scale={[0.1, 0.5, 0.1]} 
+      position={[0, -0.5, 0]} 
+      onPointerOver={() => document.body.style.cursor = 'pointer'}
+      onPointerOut={() => document.body.style.cursor = 'auto'}
+    />
   );
 }
 
-// --- SUB-COMPONENT: Single Petal ---
-function Petal({ angle, layer, bloomProgress }) {
-    const mesh = useRef();
+// Preload
+useGLTF.preload('/rose.glb');
 
-    useFrame((state, delta) => {
-        const targetRotation = 
-            layer === 1 
-            ? Math.PI / 4 - (bloomProgress * 0.5) 
-            : Math.PI / 3 - (bloomProgress * 0.8);
-
-        if (mesh.current) {
-            mesh.current.rotation.x = THREE.MathUtils.lerp(mesh.current.rotation.x, targetRotation, delta * 2);
-        }
-    });
-
-    return (
-        <group rotation={[0, angle, 0]}> 
-            <mesh ref={mesh} position={[0, 0.5, 0]} rotation={[Math.PI/3, 0, 0]}>
-                <sphereGeometry args={[0.6, 16, 16, 0, Math.PI * 2, 0, Math.PI/2]} />
-                {/* IMPORTANT: MeshTransmissionMaterial needs an Environment 
-                   to look like glass. It reflects the environment. 
-                */}
-                <MeshTransmissionMaterial 
-                    backside
-                    samples={4}
-                    thickness={0.2}
-                    chromaticAberration={0.5}
-                    anisotropy={0.3}
-                    color="#ff0055"
-                    temporalDistortion={0.5}
-                />
-            </mesh>
-        </group>
-    );
-}
-
+// --- COMPONENT: Particles ---
 function PetalExplosion() {
     return (
         <group>
+            {/* Red Petals */}
             <Sparkles count={200} scale={[4, 4, 4]} size={6} speed={0.4} opacity={1} color="#ff0055" />
+            {/* Golden Magic Dust */}
             <Sparkles count={100} scale={[5, 5, 5]} size={10} speed={0.2} opacity={0.5} color="gold" />
         </group>
     )
@@ -112,51 +69,58 @@ function PetalExplosion() {
 
 // --- MAIN EXPORT ---
 export default function RoseDay({ onBack }) {
-  const { camera } = useThree(); // <--- Get Camera access
-  const [bloom, setBloom] = useState(0); 
+  const { camera } = useThree(); 
+  const [bloom, setBloom] = useState(0); // 0.0 (Bud) to 1.0 (Full Flower)
   const [isFinished, setIsFinished] = useState(false);
 
-  // --- CRITICAL FIX: RESET CAMERA WHEN SCENE LOADS ---
+  // --- CAMERA RESET ---
   useEffect(() => {
-    // Reset camera from the Hub's scroll position (z = -15) back to the Rose position (z = 6)
-    camera.position.set(0, 0, 6);
+    camera.position.set(0, 0, 5); // Zoom in closer
     camera.lookAt(0, 0, 0);
   }, [camera]);
 
   const handleClick = () => {
     if (isFinished) return;
+    
+    // Grow by 20% per click
     const newBloom = Math.min(bloom + 0.2, 1);
     setBloom(newBloom);
-    if (newBloom >= 1) setIsFinished(true);
+    
+    if (newBloom >= 0.95) setIsFinished(true); // Consider finished at 95%
   };
 
   return (
     <group>
-        {/* Environment makes the glass/crystal look real */}
+        {/* Environment for realistic reflections */}
         <Environment preset="sunset" />
         
-        <pointLight position={[0, 2, 2]} intensity={5} color="#ff99cc" />
-        <ambientLight intensity={0.5} color="#550022" />
+        {/* Cinematic Lighting */}
+        <pointLight position={[2, 3, 2]} intensity={20} color="#ffaaee" distance={10} />
+        <pointLight position={[-2, 1, 2]} intensity={10} color="#ff0055" distance={10} />
+        <ambientLight intensity={0.5} color="#442222" />
 
-        {/* Instructions */}
+        {/* Instructions (Hidden when finished) */}
         {!isFinished && (
             <Text 
                 position={[0, 2.5, 0]} 
-                fontSize={0.5} 
+                fontSize={0.4} 
                 color="white" 
                 anchorX="center" 
                 anchorY="middle"
                 font="https://fonts.gstatic.com/s/raleway/v14/1Ptrg8zYS_SKggPNwK4vaqI.woff"
+                toneMapped={false}
+                outlineWidth={0.02}
+                outlineColor="#ff0055"
             >
-                Tap the Rose to Bloom
+                Tap the bud to make it bloom
             </Text>
         )}
 
-        {/* Victory */}
+        {/* Victory Message */}
         {isFinished && (
             <group>
                 <Text 
-                    position={[0, 2.5, 0]} 
+                    position={[0, 2.8, 0]} 
                     fontSize={0.8} 
                     color="#ff0055" 
                     anchorX="center" 
@@ -170,24 +134,28 @@ export default function RoseDay({ onBack }) {
             </group>
         )}
 
-        {/* Rose */}
-        <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-            <CrystalRose bloomProgress={bloom} onClick={handleClick} />
+        {/* The 3D Rose */}
+        <Float speed={2} rotationIntensity={0.2} floatIntensity={0.2}>
+            <RoseModel bloomProgress={bloom} onClick={handleClick} />
         </Float>
 
         {/* Back Button */}
         <group 
             position={[0, -3, 0]} 
-            onClick={onBack} 
+            onClick={(e) => { 
+                e.stopPropagation(); 
+                onBack(); 
+            }} 
             onPointerOver={() => document.body.style.cursor='pointer'} 
             onPointerOut={() => document.body.style.cursor='auto'}
         >
             <Text fontSize={0.3} color="white">
                 {isFinished ? "Continue Journey ->" : "Go Back"}
             </Text>
-            {/* Hitbox for easier clicking */}
-            <mesh visible={false}>
+            {/* Transparent Hitbox for easier clicking */}
+            <mesh position={[0, 0, 0]}>
                 <planeGeometry args={[4, 1]} />
+                <meshBasicMaterial transparent opacity={0} /> 
             </mesh>
         </group>
 
