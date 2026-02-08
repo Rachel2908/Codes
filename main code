@@ -1,0 +1,75 @@
+export default function App() {
+  const [hasEntered, setHasEntered] = useState(false);
+  const [showHub, setShowHub] = useState(false);
+
+  const handleEnter = () => {
+    setHasEntered(true);
+
+    setTimeout(() => {
+      setShowHub(true);
+    }, 2000);
+  };
+
+  return (
+    <div style={{ backgroundColor: '#2f0081', width: '100vw', height: '100vh' }}>
+      <Canvas 
+        style={{ background: 'linear-gradient(to bottom, #3c0176, #2d0060, #120031, black,black,black)' }} 
+        gl={{ alpha: true, antialias: true }}  
+        shadows 
+        camera={{ position: [0, 2, 12], fov: 50 }} 
+        dpr={[1, 2]}
+      >
+        
+        <fog attach="fog" args={['#050208', 5, 30]} />
+        {/* 1. CAMERA CONTROL */}
+        {/* If entered, FlyThrough takes over. If not, ResponsiveCamera (or static) sits there. */}
+        
+<CameraFlythrough start={hasEntered} />
+        {/* 2. LIGHTING */}
+        <pointLight position={[0, 3, 1]} intensity={10} color="#ffffff" distance={15} castShadow />
+        <directionalLight position={[0, 10, -5]} intensity={1} color="#5577ff" />
+
+        {/* 3. SCENE CONTENT */}
+        <HeroDoor onEnter={handleEnter} isOpen={hasEntered} />
+        
+        {showHub && <HubWorld/>}
+        
+        {/* The World Behind the Door */}
+        {/* <RoseDayWorld /> */}
+
+        <Suspense fallback={null}>
+          <ModelWrapper path='/tree_gn.glb' position={[-9, 0, 0]} scale={0.35} rotation={[0, 1, 0]} />
+          <ModelWrapper path='/tree_gn.glb' position={[9, -2, -2]} scale={0.35} rotation={[0, 1, 0]} />
+          
+          <ModelWrapper path='/tree.glb' position={[4, -3.5, -2]} scale={40} rotation={[0, 6, 0]} />
+          <ModelWrapper path='/tree.glb' position={[-4, -3, -3]} scale={30} rotation={[0, 1, 0]} />
+          <ModelWrapper path='/tree.glb' position={[5, -2, -5]} scale={35} rotation={[0, 1, 0]} />
+          <ModelWrapper path='/tree.glb' position={[-10, -2.5, -4]} scale={35} rotation={[0, 1, 0]} />
+
+          <ModelWrapper path='/tree (1).glb' position={[-6, -4, 5]} scale={0.01} rotation={[0, 0, 0]} />
+          <ModelWrapper path='/tree (1).glb' position={[7, -3.5, 4]} scale={0.007} rotation={[0, 1, 0]} />
+
+          <ModelWrapper path='/plants.glb' position={[-4.5, -2.5, -2]} scale={0.002} rotation={[0, 1, 0]} />
+          <ModelWrapper path='/plants.glb' position={[2.8, -3, -1]} scale={0.002} rotation={[0, 1, 0]} />
+          <ModelWrapper path='/plants.glb' position={[3.8, -2, -1]} scale={0.0013} rotation={[0, 1, 0]} />
+          <ModelWrapper path='/plants.glb' position={[-2.8, -2.4, -2.5]} scale={0.001} rotation={[0, 1, 0]} />
+
+          <ModelWrapper path='/small_folliage_plant.glb' position={[7, 1, -1]} scale={0.7} rotation={[0, 1, 0]} />
+        </Suspense>
+        
+        {/* 4. PARTICLES */}
+        <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
+            <Sparkles count={150} scale={[10, 10, 10]} size={4} speed={0.4} opacity={0.7} color="gold" />
+            <Sparkles count={50} scale={[12, 8, 12]} size={6} speed={0.2} opacity={0.5} color="cyan" />
+        </Float>
+
+        {/* 5. POST PROCESSING */}
+        <EffectComposer disableNormalPass>
+            <Bloom luminanceThreshold={1} intensity={1.5} levels={9} mipmapBlur />
+            <Vignette eskil={false} offset={0.1} darkness={1.1} />
+        </EffectComposer>
+        
+      </Canvas>
+    </div>
+  );
+}
