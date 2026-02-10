@@ -1,16 +1,14 @@
 import React, { useRef, useState, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { 
-  Text, 
-  Sparkles, 
-  Float, 
-  useTexture,
-  useGLTF 
-} from '@react-three/drei';
+import { Text, Sparkles, Float, useTexture, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import HubWorld from './HubWorld';
 import RoseDay from './RoseDay'; 
+import ProposeDay from './ProposeDay'; // <--- IMPORT THIS
+
+// ... [Keep CameraFlythrough, HeroDoor, ModelWrapper components EXACTLY as they are] ...
+// (I am omitting them here to save space, but DO NOT delete them from your file)
 
 // --- COMPONENT: Camera Flythrough ---
 function CameraFlythrough({ start }) {
@@ -106,9 +104,10 @@ function ModelWrapper({ path, position, scale, rotation }) {
   return <primitive object={clone} position={position} scale={scale} rotation={rotation} />;
 }
 
+
 // --- MAIN APP ---
 export default function App() {
-  const [stage, setStage] = useState('start'); // 'start', 'flying', 'hub', 'rose'
+  const [stage, setStage] = useState('start'); // 'start', 'flying', 'hub', 'rose', 'propose'
 
   const handleEnter = () => {
     setStage('flying');
@@ -116,6 +115,10 @@ export default function App() {
       setStage('hub');
     }, 2000);
   };
+
+  // Helper to determine if we should show background trees
+  // Hide trees if we are in a specific game mode
+  const showBackground = stage !== 'rose' && stage !== 'propose';
 
   return (
     <div style={{ backgroundColor: '#2f0081', width: '100vw', height: '100vh' }}>
@@ -145,6 +148,7 @@ export default function App() {
             <HubWorld 
                 onEnterDay={(dayIndex) => {
                     if (dayIndex === 0) setStage('rose');
+                    if (dayIndex === 1) setStage('propose'); // <--- ADDED PROPOSE DAY LINK
                 }} 
             />
         )}
@@ -153,26 +157,27 @@ export default function App() {
         {stage === 'rose' && (
             <RoseDay onBack={() => setStage('hub')} />
         )}
+
+        {/* --- STAGE 4: PROPOSE DAY --- */}
+        {stage === 'propose' && (
+            <ProposeDay onBack={() => setStage('hub')} />
+        )}
         
-        {/* --- BACKGROUND TREES (IMPORTANT: HIDE DURING ROSE DAY) --- */}
-        {stage !== 'rose' && (
+        {/* --- BACKGROUND TREES --- */}
+        {showBackground && (
           <Suspense fallback={null}>
             <ModelWrapper path='/tree_gn.glb' position={[-9, 0, 0]} scale={0.35} rotation={[0, 1, 0]} />
             <ModelWrapper path='/tree_gn.glb' position={[9, -2, -2]} scale={0.35} rotation={[0, 1, 0]} />
-            
             <ModelWrapper path='/tree.glb' position={[4, -3.5, -2]} scale={40} rotation={[0, 6, 0]} />
             <ModelWrapper path='/tree.glb' position={[-4, -3, -3]} scale={30} rotation={[0, 1, 0]} />
             <ModelWrapper path='/tree.glb' position={[5, -2, -5]} scale={35} rotation={[0, 1, 0]} />
             <ModelWrapper path='/tree.glb' position={[-10, -2.5, -4]} scale={35} rotation={[0, 1, 0]} />
-
             <ModelWrapper path='/tree (1).glb' position={[-6, -4, 5]} scale={0.01} rotation={[0, 0, 0]} />
             <ModelWrapper path='/tree (1).glb' position={[7, -3.5, 4]} scale={0.007} rotation={[0, 1, 0]} />
-
             <ModelWrapper path='/plants.glb' position={[-4.5, -2.5, -2]} scale={0.002} rotation={[0, 1, 0]} />
             <ModelWrapper path='/plants.glb' position={[2.8, -3, -1]} scale={0.002} rotation={[0, 1, 0]} />
             <ModelWrapper path='/plants.glb' position={[3.8, -2, -1]} scale={0.0013} rotation={[0, 1, 0]} />
             <ModelWrapper path='/plants.glb' position={[-2.8, -2.4, -2.5]} scale={0.001} rotation={[0, 1, 0]} />
-
             <ModelWrapper path='/small_folliage_plant.glb' position={[7, 1, -1]} scale={0.7} rotation={[0, 1, 0]} />
           </Suspense>
         )}
