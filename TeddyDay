@@ -5,18 +5,24 @@ import { useSpring, animated, config } from '@react-spring/three';
 import * as THREE from 'three';
 
 // --- COMPONENT: Procedural Teddy Bear ---
-// (If you have a teddy.glb, replace this component with <primitive object={scene} />)
 function TeddyBear({ color, isHugging }) {
   const group = useRef();
   
-  // Spring animation for the Hug
-  const { armRotation } = useSpring({
-    armRotation: isHugging ? 2.5 : 0, // 0 = sides, 2.5 = up/hugging
-    config: config.wobbly
+  // ANIMATION: Slow, heavy spring for a "big hug" feel
+  const { armRotation, bodyLean, armOpen } = useSpring({
+    armRotation: isHugging ? 2.5 : 0, // Arms raise up
+    armOpen: isHugging ? 0.5 : 0,     // Arms spread wide
+    bodyLean: isHugging ? 0.5 : 0,    // Bear leans forward
+    config: { mass: 5, tension: 100, friction: 50 } // Slow and smooth
   });
 
   return (
-    <group ref={group} position={[0, -1, 0]} scale={1.5}>
+    <animated.group 
+        ref={group} 
+        position={[0, -1, 0]} 
+        scale={1.5} 
+        rotation-x={bodyLean} // Lean forward when hugging
+    >
       {/* 1. BODY */}
       <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[1, 32, 32]} />
@@ -61,34 +67,44 @@ function TeddyBear({ color, isHugging }) {
         </mesh>
       </group>
 
-      {/* 3. ARMS (Animated) */}
+      {/* 3. ARMS (Fixed Position & Animation) */}
+      
       {/* Left Arm */}
-      <animated.group position={[-0.9, 0.5, 0]} rotation-z={armRotation.to(r => -r * 0.5)}>
+      {/* Moved Z to 0.4 so it's on the FRONT, not back */}
+      <animated.group 
+        position={[-0.9, 0.3, 0.4]} 
+        rotation-z={armRotation.to(r => -r * 0.5)} // Raise Up
+        rotation-y={armOpen.to(r => -r)}            // Open Wide
+      >
         <mesh rotation={[0, 0, 0.5]}>
-            <capsuleGeometry args={[0.3, 1, 4, 8]} />
+            <capsuleGeometry args={[0.25, 0.9, 4, 8]} />
             <meshStandardMaterial color={color} />
         </mesh>
       </animated.group>
 
       {/* Right Arm */}
-      <animated.group position={[0.9, 0.5, 0]} rotation-z={armRotation.to(r => r * 0.5)}>
+      <animated.group 
+        position={[0.9, 0.3, 0.4]} 
+        rotation-z={armRotation.to(r => r * 0.5)} // Raise Up
+        rotation-y={armOpen.to(r => r)}           // Open Wide
+      >
         <mesh rotation={[0, 0, -0.5]}>
-            <capsuleGeometry args={[0.3, 1, 4, 8]} />
+            <capsuleGeometry args={[0.25, 0.9, 4, 8]} />
             <meshStandardMaterial color={color} />
         </mesh>
       </animated.group>
 
       {/* 4. LEGS */}
-      <mesh position={[-0.6, -1.2, 0.5]} rotation={[1.5, 0, 0]}>
-         <capsuleGeometry args={[0.35, 1, 4, 8]} />
+      <mesh position={[-0.5, -1.2, 0.6]} rotation={[1.5, 0, -0.2]}>
+         <capsuleGeometry args={[0.3, 0.8, 4, 8]} />
          <meshStandardMaterial color={color} />
       </mesh>
-      <mesh position={[0.6, -1.2, 0.5]} rotation={[1.5, 0, 0]}>
-         <capsuleGeometry args={[0.35, 1, 4, 8]} />
+      <mesh position={[0.5, -1.2, 0.6]} rotation={[1.5, 0, 0.2]}>
+         <capsuleGeometry args={[0.3, 0.8, 4, 8]} />
          <meshStandardMaterial color={color} />
       </mesh>
 
-    </group>
+    </animated.group>
   );
 }
 
@@ -115,7 +131,7 @@ function CustomizeUI({ setColor, onHug, isFinished }) {
       {/* COLOR PICKER (Bottom) */}
       {!isFinished && (
         <div style={{ 
-            position: 'absolute', bottom: '100px', 
+            position: 'absolute', bottom: '120px', 
             display: 'flex', gap: '20px', pointerEvents: 'auto' 
         }}>
             {colors.map((c) => (
@@ -125,8 +141,10 @@ function CustomizeUI({ setColor, onHug, isFinished }) {
                     style={{
                         width: '50px', height: '50px', borderRadius: '50%',
                         background: c.hex, border: '3px solid white', cursor: 'pointer',
-                        boxShadow: '0 0 10px rgba(0,0,0,0.5)'
+                        boxShadow: '0 0 10px rgba(0,0,0,0.5)', transition: 'transform 0.2s'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 />
             ))}
         </div>
@@ -137,7 +155,7 @@ function CustomizeUI({ setColor, onHug, isFinished }) {
           <button 
             onClick={onHug}
             style={{
-                position: 'absolute', bottom: '30px', pointerEvents: 'auto',
+                position: 'absolute', bottom: '40px', pointerEvents: 'auto',
                 padding: '15px 40px', fontSize: '1.5rem', borderRadius: '30px',
                 background: '#ff0055', color: 'white', border: 'none', cursor: 'pointer',
                 fontFamily: 'serif', boxShadow: '0 0 20px #ff0055'
@@ -151,13 +169,16 @@ function CustomizeUI({ setColor, onHug, isFinished }) {
       {isFinished && (
           <div style={{ 
               position: 'absolute', top: '20%', 
-              background: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '15px',
-              textAlign: 'center', boxShadow: '0 0 30px gold'
+              background: 'rgba(255,255,255,0.9)', padding: '40px', borderRadius: '15px',
+              textAlign: 'center', boxShadow: '0 0 30px gold',
+              animation: 'popIn 0.5s ease'
           }}>
-              <h2 style={{ color: '#ff0055', margin: 0 }}>Happy Teddy Day!</h2>
-              <p style={{ color: '#5c3a21' }}>Here is a warm hug for you.</p>
+              <h1 style={{ color: '#ff0055', margin: 0 }}>Happy Teddy Day!</h1>
+              <p style={{ color: '#5c3a21', fontSize: '1.2rem' }}>Here is a warm hug for you.</p>
           </div>
       )}
+      
+      <style>{`@keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }`}</style>
 
     </Html>
   );
@@ -166,21 +187,22 @@ function CustomizeUI({ setColor, onHug, isFinished }) {
 // --- MAIN EXPORT ---
 export default function TeddyDay({ onBack }) {
   const { camera } = useThree();
-  const [bearColor, setBearColor] = useState('#8b4513'); // Default Brown
+  const [bearColor, setBearColor] = useState('#8b4513'); 
   const [isHugging, setIsHugging] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
-  // 1. Reset Camera
+  // 1. Reset Camera closer
   useEffect(() => {
-    camera.position.set(0, 0, 8);
+    camera.position.set(0, 0, 7);
     camera.lookAt(0, 0, 0);
   }, [camera]);
 
   const handleHug = () => {
     setIsHugging(true);
+    // Increased wait time to 3 seconds so the slow hug finishes
     setTimeout(() => {
         setIsFinished(true);
-    }, 1000); // Wait for arm animation
+    }, 3000); 
   };
 
   return (
@@ -201,7 +223,6 @@ export default function TeddyDay({ onBack }) {
       {/* Floor Shadow */}
       <ContactShadows position={[0, -2.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} color="purple" />
 
-      {/* UI Interface */}
       <CustomizeUI 
         setColor={setBearColor} 
         onHug={handleHug} 
@@ -212,7 +233,7 @@ export default function TeddyDay({ onBack }) {
       <Html position={[0, -3.5, 0]} center>
          <button onClick={onBack} style={{
              padding: '10px 20px', borderRadius: '20px', border: '1px solid #ff0055',
-             background: 'transparent', color: '#ff0055', cursor: 'pointer'
+             background: 'rgba(255,255,255,0.5)', color: '#ff0055', cursor: 'pointer', fontFamily: 'serif'
          }}>
              {isFinished ? "Continue Journey" : "Go Back"}
          </button>
