@@ -1,0 +1,223 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import { Html, Float, Environment, Sparkles, ContactShadows } from '@react-three/drei';
+import { useSpring, animated, config } from '@react-spring/three';
+import * as THREE from 'three';
+
+// --- COMPONENT: Procedural Teddy Bear ---
+// (If you have a teddy.glb, replace this component with <primitive object={scene} />)
+function TeddyBear({ color, isHugging }) {
+  const group = useRef();
+  
+  // Spring animation for the Hug
+  const { armRotation } = useSpring({
+    armRotation: isHugging ? 2.5 : 0, // 0 = sides, 2.5 = up/hugging
+    config: config.wobbly
+  });
+
+  return (
+    <group ref={group} position={[0, -1, 0]} scale={1.5}>
+      {/* 1. BODY */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshStandardMaterial color={color} roughness={0.8} />
+      </mesh>
+
+      {/* 2. HEAD */}
+      <group position={[0, 1.4, 0]}>
+        <mesh>
+            <sphereGeometry args={[0.8, 32, 32]} />
+            <meshStandardMaterial color={color} roughness={0.8} />
+        </mesh>
+        
+        {/* Ears */}
+        <mesh position={[-0.6, 0.6, 0]}>
+            <sphereGeometry args={[0.25, 32, 32]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+        <mesh position={[0.6, 0.6, 0]}>
+            <sphereGeometry args={[0.25, 32, 32]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+
+        {/* Eyes */}
+        <mesh position={[-0.25, 0.1, 0.7]}>
+            <sphereGeometry args={[0.1, 32, 32]} />
+            <meshStandardMaterial color="black" roughness={0.1} />
+        </mesh>
+        <mesh position={[0.25, 0.1, 0.7]}>
+            <sphereGeometry args={[0.1, 32, 32]} />
+            <meshStandardMaterial color="black" roughness={0.1} />
+        </mesh>
+
+        {/* Snout */}
+        <mesh position={[0, -0.2, 0.7]} scale={[1, 0.8, 0.5]}>
+            <sphereGeometry args={[0.25, 32, 32]} />
+            <meshStandardMaterial color="#ffdec2" />
+        </mesh>
+        <mesh position={[0, -0.1, 0.85]}>
+            <sphereGeometry args={[0.08, 32, 32]} />
+            <meshStandardMaterial color="black" />
+        </mesh>
+      </group>
+
+      {/* 3. ARMS (Animated) */}
+      {/* Left Arm */}
+      <animated.group position={[-0.9, 0.5, 0]} rotation-z={armRotation.to(r => -r * 0.5)}>
+        <mesh rotation={[0, 0, 0.5]}>
+            <capsuleGeometry args={[0.3, 1, 4, 8]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+      </animated.group>
+
+      {/* Right Arm */}
+      <animated.group position={[0.9, 0.5, 0]} rotation-z={armRotation.to(r => r * 0.5)}>
+        <mesh rotation={[0, 0, -0.5]}>
+            <capsuleGeometry args={[0.3, 1, 4, 8]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+      </animated.group>
+
+      {/* 4. LEGS */}
+      <mesh position={[-0.6, -1.2, 0.5]} rotation={[1.5, 0, 0]}>
+         <capsuleGeometry args={[0.35, 1, 4, 8]} />
+         <meshStandardMaterial color={color} />
+      </mesh>
+      <mesh position={[0.6, -1.2, 0.5]} rotation={[1.5, 0, 0]}>
+         <capsuleGeometry args={[0.35, 1, 4, 8]} />
+         <meshStandardMaterial color={color} />
+      </mesh>
+
+    </group>
+  );
+}
+
+// --- COMPONENT: UI Overlay ---
+function CustomizeUI({ setColor, onHug, isFinished }) {
+  const colors = [
+    { name: 'Brown', hex: '#8b4513' },
+    { name: 'Pink', hex: '#ff99cc' },
+    { name: 'White', hex: '#ffffff' },
+    { name: 'Gold', hex: '#ffd700' },
+  ];
+
+  return (
+    <Html fullscreen style={{ pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      
+      {/* HEADER */}
+      <h1 style={{ 
+          color: 'white', fontFamily: 'serif', marginTop: '50px',
+          textShadow: '0 0 10px #ff0055', textAlign: 'center' 
+      }}>
+        {isFinished ? "Sent with a Hug!" : "Customize Your Teddy"}
+      </h1>
+
+      {/* COLOR PICKER (Bottom) */}
+      {!isFinished && (
+        <div style={{ 
+            position: 'absolute', bottom: '100px', 
+            display: 'flex', gap: '20px', pointerEvents: 'auto' 
+        }}>
+            {colors.map((c) => (
+                <button 
+                    key={c.name}
+                    onClick={() => setColor(c.hex)}
+                    style={{
+                        width: '50px', height: '50px', borderRadius: '50%',
+                        background: c.hex, border: '3px solid white', cursor: 'pointer',
+                        boxShadow: '0 0 10px rgba(0,0,0,0.5)'
+                    }}
+                />
+            ))}
+        </div>
+      )}
+
+      {/* HUG BUTTON */}
+      {!isFinished && (
+          <button 
+            onClick={onHug}
+            style={{
+                position: 'absolute', bottom: '30px', pointerEvents: 'auto',
+                padding: '15px 40px', fontSize: '1.5rem', borderRadius: '30px',
+                background: '#ff0055', color: 'white', border: 'none', cursor: 'pointer',
+                fontFamily: 'serif', boxShadow: '0 0 20px #ff0055'
+            }}
+          >
+            Send Hug ❤️
+          </button>
+      )}
+
+      {/* VICTORY MESSAGE */}
+      {isFinished && (
+          <div style={{ 
+              position: 'absolute', top: '20%', 
+              background: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '15px',
+              textAlign: 'center', boxShadow: '0 0 30px gold'
+          }}>
+              <h2 style={{ color: '#ff0055', margin: 0 }}>Happy Teddy Day!</h2>
+              <p style={{ color: '#5c3a21' }}>Here is a warm hug for you.</p>
+          </div>
+      )}
+
+    </Html>
+  );
+}
+
+// --- MAIN EXPORT ---
+export default function TeddyDay({ onBack }) {
+  const { camera } = useThree();
+  const [bearColor, setBearColor] = useState('#8b4513'); // Default Brown
+  const [isHugging, setIsHugging] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+
+  // 1. Reset Camera
+  useEffect(() => {
+    camera.position.set(0, 0, 8);
+    camera.lookAt(0, 0, 0);
+  }, [camera]);
+
+  const handleHug = () => {
+    setIsHugging(true);
+    setTimeout(() => {
+        setIsFinished(true);
+    }, 1000); // Wait for arm animation
+  };
+
+  return (
+    <group>
+      <color attach="background" args={['#ffeff5']} />
+      <Environment preset="studio" />
+      <ambientLight intensity={0.6} />
+      <spotLight position={[5, 10, 5]} intensity={1} angle={0.5} penumbra={1} />
+
+      {/* Floating Particles */}
+      <Sparkles count={50} scale={[10, 10, 10]} size={5} speed={0.5} opacity={0.5} color="pink" />
+
+      {/* The Bear */}
+      <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
+         <TeddyBear color={bearColor} isHugging={isHugging} />
+      </Float>
+
+      {/* Floor Shadow */}
+      <ContactShadows position={[0, -2.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} color="purple" />
+
+      {/* UI Interface */}
+      <CustomizeUI 
+        setColor={setBearColor} 
+        onHug={handleHug} 
+        isFinished={isFinished} 
+      />
+
+      {/* Back Button */}
+      <Html position={[0, -3.5, 0]} center>
+         <button onClick={onBack} style={{
+             padding: '10px 20px', borderRadius: '20px', border: '1px solid #ff0055',
+             background: 'transparent', color: '#ff0055', cursor: 'pointer'
+         }}>
+             {isFinished ? "Continue Journey" : "Go Back"}
+         </button>
+      </Html>
+
+    </group>
+  );
+}
