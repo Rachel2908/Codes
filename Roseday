@@ -19,10 +19,9 @@ function RoseModel({ bloomProgress, onClick }) {
       // Calculate target scales based on bloom progress (0.0 to 1.0)
       // BUD STATE (0%): Very thin (0.1), slightly short (0.5)
       // BLOOM STATE (100%): Full size (1.0, 1.0)
-      const targetScaleX = 0.1 + (bloomProgress * 0.9); // Ends at 1.0
-      const targetScaleY = 0.5 + (bloomProgress * 0.5); // Ends at 1.0
-      const targetScaleZ = 0.1 + (bloomProgress * 0.9); // Ends at 1.0
-
+      const targetScaleX = 0.1 + (bloomProgress * 2.9); // Ends at 2.0
+const targetScaleY = 0.5 + (bloomProgress * 2.5); // Ends at 2.0
+const targetScaleZ = 0.1 + (bloomProgress * 2.9); // Ends at 2.0
       // Apply smoothness
       roseRef.current.scale.x = THREE.MathUtils.lerp(roseRef.current.scale.x, targetScaleX, delta * 2);
       roseRef.current.scale.y = THREE.MathUtils.lerp(roseRef.current.scale.y, targetScaleY, delta * 2);
@@ -34,7 +33,7 @@ function RoseModel({ bloomProgress, onClick }) {
       roseRef.current.rotation.y += delta * spinSpeed;
 
       // 3. BOBBING: Gentle floating
-      roseRef.current.position.y = Math.sin(state.clock.elapsedTime) * 0.1 - 0.5; // -0.5 to center it
+      roseRef.current.position.y = Math.sin(state.clock.elapsedTime) * 0.1 - 2.5; // -0.5 to center it
     }
   });
 
@@ -60,9 +59,9 @@ function PetalExplosion() {
     return (
         <group>
             {/* Red Petals */}
-            <Sparkles count={200} scale={[4, 4, 4]} size={6} speed={0.4} opacity={1} color="#ff0055" />
+            <Sparkles count={100} scale={[4, 3, 5]} size={3} speed={0.4} opacity={1} color="#b375d1" />
             {/* Golden Magic Dust */}
-            <Sparkles count={100} scale={[5, 5, 5]} size={10} speed={0.2} opacity={0.5} color="gold" />
+            <Sparkles count={80} scale={[4, 3, 5]} size={5} speed={0.3} opacity={0.5} color="#d175c0" />
         </group>
     )
 }
@@ -70,9 +69,10 @@ function PetalExplosion() {
 // --- MAIN EXPORT ---
 export default function RoseDay({ onBack }) {
   const { camera } = useThree(); 
-  const [bloom, setBloom] = useState(0); // 0.0 (Bud) to 1.0 (Full Flower)
+  const { viewport } = useThree();
+  const [bloom, setBloom] = useState(0.2); // 0.0 (Bud) to 1.0 (Full Flower)
   const [isFinished, setIsFinished] = useState(false);
-
+const responsiveFontSize = Math.min(viewport.width * 0.05, 0.8); 
   // --- CAMERA RESET ---
   useEffect(() => {
     camera.position.set(0, 0, 5); // Zoom in closer
@@ -86,12 +86,14 @@ export default function RoseDay({ onBack }) {
     const newBloom = Math.min(bloom + 0.2, 1);
     setBloom(newBloom);
     
-    if (newBloom >= 0.95) setIsFinished(true); // Consider finished at 95%
+    if (newBloom >= 0.98) setIsFinished(true); // Consider finished at 95%
   };
+  
 
   return (
     <group>
         {/* Environment for realistic reflections */}
+        <color attach="background" args={['#000000']} />
         <Environment preset="sunset" />
         
         {/* Cinematic Lighting */}
@@ -102,12 +104,11 @@ export default function RoseDay({ onBack }) {
         {/* Instructions (Hidden when finished) */}
         {!isFinished && (
             <Text 
-                position={[0, 2.5, 0]} 
-                fontSize={0.4} 
+                position={[0, 1.6, 0]} 
+                fontSize={responsiveFontSize} 
                 color="white" 
                 anchorX="center" 
                 anchorY="middle"
-                font="https://fonts.gstatic.com/s/raleway/v14/1Ptrg8zYS_SKggPNwK4vaqI.woff"
                 toneMapped={false}
                 outlineWidth={0.02}
                 outlineColor="#ff0055"
@@ -120,12 +121,11 @@ export default function RoseDay({ onBack }) {
         {isFinished && (
             <group>
                 <Text 
-                    position={[0, 2.8, 0]} 
-                    fontSize={0.8} 
-                    color="#ff0055" 
+                    position={[0, 1.6, 0]} 
+                    fontSize={responsiveFontSize} 
+                    color="#c5889c" 
                     anchorX="center" 
                     anchorY="middle"
-                    font="https://fonts.gstatic.com/s/cinzel/v11/8vIJ7ww63mVu7gt78Uk.woff"
                     toneMapped={false}
                 >
                     Happy Rose Day
@@ -141,7 +141,7 @@ export default function RoseDay({ onBack }) {
 
         {/* Back Button */}
         <group 
-            position={[0, -3, 0]} 
+            position={[3.5, -2, 0]} 
             onClick={(e) => { 
                 e.stopPropagation(); 
                 onBack(); 
@@ -149,7 +149,7 @@ export default function RoseDay({ onBack }) {
             onPointerOver={() => document.body.style.cursor='pointer'} 
             onPointerOut={() => document.body.style.cursor='auto'}
         >
-            <Text fontSize={0.3} color="white">
+            <Text fontSize={0.1} color="white">
                 {isFinished ? "Continue Journey ->" : "Go Back"}
             </Text>
             {/* Transparent Hitbox for easier clicking */}
