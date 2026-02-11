@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
-import { Html, Float, Environment, Sparkles, ContactShadows } from '@react-three/drei';
+import { Html, Float, Environment, Sparkles, ContactShadows, Text} from '@react-three/drei';
 import { useSpring, animated, config } from '@react-spring/three';
 import * as THREE from 'three';
 
@@ -42,15 +42,25 @@ function TeddyBear({ color, isHugging }) {
       </mesh>
 
       {/* --- THE GLOWING HEART ON HUG --- */}
-      <animated.mesh 
-        position={[0, 0, 1]} // On chest
-        rotation={[0, 0, Math.PI]} // Flip upside down to look right
-        scale={heartScale.to(s => [s * 0.4, s * 0.4, s * 0.4])} // Animate Scale
-      >
-        <extrudeGeometry args={[heartShape, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.05 }]} />
-        {/* Emissive makes it glow */}
-        <meshStandardMaterial color="#ff0055" emissive="#ff0055" emissiveIntensity={0.8} toneMapped={false} />
-      </animated.mesh>
+      <animated.group 
+  position={[0, 0.2, 0.7]} // Positioned on the chest
+  scale={heartScale.to(s => [s * 1.2, s * 1.2, s * 1.2])} // Animate Scale
+>
+  <Text
+    fontSize={0.5}
+    anchorX="center"
+    anchorY="middle"
+    // Use meshStandardMaterial properties via the material prop to make it glow
+    // Setting toneMapped to false makes the emissive color "pop" with Bloom
+  >
+    ❤️
+    <meshStandardMaterial 
+      emissive="#ff0055" 
+      emissiveIntensity={2} 
+      toneMapped={false} 
+    />
+  </Text>
+</animated.group>
 
       {/* 2. HEAD */}
       <group position={[0, 1.4, 0]}>
