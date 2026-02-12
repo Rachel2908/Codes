@@ -1,0 +1,246 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import { Html, Float, Environment, Sparkles, useTexture, Text } from '@react-three/drei';
+import { useSpring, animated, config } from '@react-spring/three';
+import * as THREE from 'three';
+
+// --- CONFIGURATION ---
+// Adjust these to change colors or textures
+const BOY_COLOR = "#4488ff";
+const GIRL_COLOR = "#ff66aa";
+
+// --- COMPONENT: Blob Character with Face ---
+function Hugger({ 
+  image, 
+  color, 
+  position, 
+  isFinished, 
+  energy, 
+  isLeft // Is this the character on the left?
+}) {
+  const mesh = useRef();
+  
+  // Load face texture
+  const texture = useTexture(image);
+
+  // ANIMATION: Spring Physics
+  const { pos, scale, rotation } = useSpring({
+    // Position Logic:
+    // If finished (hug), move to center (0). 
+    // If charging (energy > 0), shake slightly towards center.
+    // Default: Start position.
+    pos: isFinished 
+      ? (isLeft ? -0.6 : 0.6) // Collision point
+      : position[0] - (energy * 0.02 * (isLeft ? -1 : 1)), // Slight magnetic pull
+
+    // Scale Logic (The "Squish"):
+    // On impact (finished), squash Y and stretch X
+    scale: isFinished ? [1.2, 0.8, 1.2] : [1, 1, 1],
+
+    // Rotation Logic (Waddle):
+    rotation: isFinished ? 0 : (energy * 0.5),
+
+    config: isFinished 
+      ? { mass: 2, tension: 200, friction: 10 } // Bouncy Hug
+      : { mass: 1, tension: 170, friction: 26 } // Normal movement
+  });
+
+  useFrame((state) => {
+    if (mesh.current && !isFinished) {
+      // Vibrate when charging
+      const shake = energy > 0 ? Math.sin(state.clock.elapsedTime * 50) * (energy * 0.002) : 0;
+      mesh.current.position.y = -1 + Math.sin(state.clock.elapsedTime * 2) * 0.1 + shake;
+      mesh.current.position.x = (isLeft ? pos.get() : pos.get()) + shake;
+    }
+  });
+
+  return (
+    <animated.group 
+      position-x={pos} 
+      position-y={-1} 
+      scale={scale} 
+      rotation-z={rotation.to(r => isLeft ? r * 0.2 : -r * 0.2)}
+    >
+      <group ref={mesh}>
+        {/* 1. THE BODY (Blob) */}
+        <mesh>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshStandardMaterial color={color} roughness={0.4} />
+        </mesh>
+
+        {/* 2. THE FACE PLATE */}
+        <mesh position={[isLeft ? 0.85 : -0.85, 0.1, 0]} rotation={[0, isLeft ? 1.57 : -1.57, 0]}>
+          <circleGeometry args={[0.6, 32]} />
+          <meshBasicMaterial map={texture} transparent />
+        </mesh>
+
+        {/* 3. ARMS (Stick out when hugging) */}
+        <mesh position={[0, -0.2, 0.9]} rotation={[0.5, 0, 0]}>
+            <sphereGeometry args={[0.25]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+        <mesh position={[0, -0.2, -0.9]} rotation={[-0.5, 0, 0]}>
+            <sphereGeometry args={[0.25]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+      </group>
+    </animated.group>
+  );
+}
+
+// --- MAIN EXPORT ---
+export default function HugDay({ onBack }) {
+  const [energy, setEnergy] = useState(0); // 0 to 100
+  const [isPressed, setIsPressed] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+
+  // --- INTERACTION LOGIC ---
+  // Handle Spacebar & Touch
+  useEffect(() => {
+    const handleDown = (e) => {
+      if (e.code === 'Space' || e.type === 'touchstart' || e.type === 'mousedown') {
+        setIsPressed(true);
+      }
+    };
+    const handleUp = () => {
+      setIsPressed(false);
+    };
+
+    window.addEventListener('keydown', handleDown);
+    window.addEventListener('keyup', handleUp);
+    window.addEventListener('mousedown', handleDown);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchstart', handleDown);
+    window.addEventListener('touchend', handleUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleDown);
+      window.removeEventListener('keyup', handleUp);
+      window.removeEventListener('mousedown', handleDown);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchstart', handleDown);
+      window.removeEventListener('touchend', handleUp);
+    };
+  }, []);
+
+  // --- GAME LOOP ---
+  useFrame(() => {
+    if (isFinished) return;
+
+    if (isPressed) {
+      // Charge up (0.5% per frame)
+      setEnergy((prev) => Math.min(prev + 0.8, 100));
+    } else {
+      // Decay (Drain energy if let go)
+      setEnergy((prev) => Math.max(prev - 2, 0));
+    }
+
+    // Trigger Hug
+    if (energy >= 100 && !isFinished) {
+      setIsFinished(true);
+    }
+  });
+
+  return (
+    <group>
+      {/* Dynamic Background: Blue/Cool normally, Pink/Warm when hugging */}
+      <color attach="background" args={[isFinished ? '#ffaaee' : '#aaccff']} />
+      
+      {/* Lighting */}
+      <ambientLight intensity={0.5} />
+      <pointLight position={[0, 5, 5]} intensity={isFinished ? 2 : 1} color={isFinished ? "gold" : "white"} />
+      <Environment preset={isFinished ? "sunset" : "park"} />
+
+      {/* Floating Particles (Hearts on finish) */}
+      {isFinished && (
+         <Float speed={2}>
+            <Sparkles count={100} scale={[8, 8, 8]} size={10} speed={0.4} opacity={1} color="red" />
+            <Sparkles count={50} scale={[10, 10, 10]} size={10} speed={0.2} opacity={0.5} color="gold" />
+         </Float>
+      )}
+
+      {/* --- CHARACTERS --- */}
+      {/* Replace '/face1.png' and '/face2.png' with your actual image paths */}
+      <Hugger 
+        image="/face1.png" // User Image 1
+        color={BOY_COLOR} 
+        position={[-3, 0, 0]} 
+        isLeft={true} 
+        isFinished={isFinished}
+        energy={energy}
+      />
+      
+      <Hugger 
+        image="/face2.png" // User Image 2
+        color={GIRL_COLOR} 
+        position={[3, 0, 0]} 
+        isLeft={false} 
+        isFinished={isFinished}
+        energy={energy}
+      />
+
+      {/* --- UI OVERLAY --- */}
+      <Html fullscreen style={{ pointerEvents: 'none' }}>
+        <div style={{ 
+            width: '100%', height: '100%', 
+            display: 'flex', flexDirection: 'column', 
+            alignItems: 'center', justifyContent: 'center' 
+        }}>
+            
+            {!isFinished ? (
+                // CHARGING METER
+                <div style={{ position: 'absolute', top: '20%' }}>
+                    <h1 style={{ 
+                        fontFamily: 'sans-serif', color: 'white', 
+                        textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center' 
+                    }}>
+                        Hold Space / Touch to Charge Hug
+                    </h1>
+                    <div style={{ 
+                        width: '300px', height: '30px', 
+                        border: '3px solid white', borderRadius: '15px', 
+                        overflow: 'hidden', background: 'rgba(0,0,0,0.3)', margin: '0 auto'
+                    }}>
+                        <div style={{ 
+                            width: `${energy}%`, height: '100%', 
+                            background: 'linear-gradient(90deg, #ff0055, #ff99cc)',
+                            transition: 'width 0.1s linear'
+                        }} />
+                    </div>
+                </div>
+            ) : (
+                // VICTORY MESSAGE
+                <div style={{ 
+                    textAlign: 'center', animation: 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)' 
+                }}>
+                    <h1 style={{ 
+                        fontSize: '4rem', color: '#fff', textShadow: '0 4px 10px #ff0055',
+                        margin: 0
+                    }}>
+                        Happy Hug Day!
+                    </h1>
+                    <p style={{ fontSize: '1.5rem', color: '#5c3a21' }}>Distance means nothing when you hug.</p>
+                </div>
+            )}
+
+            {/* BACK BUTTON */}
+            <div style={{ position: 'absolute', bottom: '20px', right: '20px', pointerEvents: 'auto' }}>
+                 <button onClick={onBack} style={{
+                     padding: '12px 24px', borderRadius: '30px', 
+                     border: isFinished ? '2px solid white' : '2px solid #555',
+                     background: isFinished ? '#ff0055' : 'rgba(255,255,255,0.5)', 
+                     color: 'white', cursor: 'pointer', fontFamily: 'serif',
+                     fontWeight: 'bold', fontSize: '1.1rem',
+                     boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+                 }}>
+                     {isFinished ? "Continue Journey ➔" : "Go Back"}
+                 </button>
+            </div>
+
+        </div>
+        <style>{`@keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }`}</style>
+      </Html>
+
+    </group>
+  );
+}
