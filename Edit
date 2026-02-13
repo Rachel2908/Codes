@@ -1,0 +1,23 @@
+{/* --- MEMORIES LOGIC --- */}
+      {/* Show if letter is closed OR if celebrated */}
+      {!isOpen && MEMORIES.map((url, i) => {
+         // --- 1. SPIRAL POSITION (Before Yes) ---
+         const angle = (i / MEMORIES.length) * Math.PI * 2;
+         const radius = viewport.width < 5 ? 2.8 : 3.5; 
+         const spiralY = -1.5 + (i * 0.8);
+         const spiralPos = [Math.cos(angle) * radius, spiralY, Math.sin(angle) * radius];
+         const spiralRot = [0, -angle, 0];
+
+         // --- 2. SIDE GALLERY POSITION (After Yes) ---
+         const isLeft = i % 2 === 0; // Even goes left, Odd goes right
+         const xOffset = isLeft ? -5.5 : 5.5; // Push to sides
+         const yOffset = 1 + ((i % 3) * 2.5); // Stack vertically
+         const sidePos = [xOffset, yOffset, 0];
+         // Rotate inward to face center
+         const sideRot = [0, isLeft ? Math.PI / 4 : -Math.PI / 4, 0];
+
+         // Select Target based on state
+         const targetPos = isCelebrated ? sidePos : spiralPos;
+         const targetRot = isCelebrated ? sideRot : spiralRot;
+
+         return
