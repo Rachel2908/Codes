@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
-import { Html, Image, Float, Sparkles, Environment, Stars, OrbitControls, Text } from '@react-three/drei'; 
+import { Html, Image, Float, Sparkles, Environment, Stars, OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
+// 1. NEW IMPORTS FOR ANIMATION
+import { useSpring, animated } from '@react-spring/three';
 
 // --- CONFIGURATION: YOUR MEMORIES ---
 const MEMORIES = [
@@ -18,7 +20,6 @@ function Firework({ position, color }) {
   const ref = useRef();
   useFrame((state) => {
     if (ref.current) {
-      // Pulse scale
       const t = state.clock.elapsedTime;
       const scale = 1 + Math.sin(t * 10 + position[0]) * 0.2;
       ref.current.scale.setScalar(scale);
@@ -40,12 +41,10 @@ function Firework({ position, color }) {
 // --- COMPONENT: Celebration Scene (Text + Fireworks) ---
 function Celebration() {
   const { viewport } = useThree();
-  // Responsive Scale for 3D Text: Smaller on mobile (< 5 width)
   const textScale = viewport.width < 5 ? 0.6 : 1;
 
   return (
     <group position={[0, 5, 0]}>
-      {/* 1. Giant 3D Text */}
       <Float speed={2} floatIntensity={1}>
           <group scale={textScale}>
             <Text 
@@ -72,7 +71,6 @@ function Celebration() {
           </group>
       </Float>
 
-      {/* 2. Fireworks positions */}
       <Firework position={[-4, 2, -2]} color="red" />
       <Firework position={[4, 3, -1]} color="gold" />
       <Firework position={[-3, -1, 1]} color="purple" />
@@ -93,13 +91,11 @@ function Gazebo() {
 
   return (
     <group ref={group} position={[0, -2.5, 0]}>
-       {/* Floor (Corrected rotation to be flat) */}
        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
          <cylinderGeometry args={[4, 4, 0.2, 32]} />
          <meshStandardMaterial color="#f0e6d2" roughness={0.5} />
        </mesh>
        
-       {/* Pillars */}
        {[0, 1, 2, 3, 4, 5].map((i) => {
          const angle = (i / 6) * Math.PI * 2;
          return (
@@ -110,7 +106,6 @@ function Gazebo() {
          );
        })}
 
-       {/* Roof */}
        <mesh position={[0, 4.5, 0]}>
          <coneGeometry args={[4.5, 2, 32]} />
          <meshStandardMaterial color="#ff0055" roughness={0.3} />
@@ -119,17 +114,28 @@ function Gazebo() {
   );
 }
 
-// --- COMPONENT: Floating Memory Photo ---
-function FloatingMemory({ url, position, rotation }) {
+// --- COMPONENT: Floating Memory Photo (UPDATED WITH ANIMATION) ---
+function FloatingMemory({ url, targetPosition, rotation, isCelebrated }) {
+  // 2. Use Spring to animate position and opacity
+  const { pos, opacitySpring } = useSpring({
+    pos: targetPosition,
+    opacitySpring: isCelebrated ? 0.2 : 0.95, // Faded vs Normal opacity
+    config: { mass: 10, tension: 40, friction: 30 } // Slow, dreamy transition
+  });
+
   return (
-    <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5} floatingRange={[0, 0.5]}>
-      <group position={position} rotation={rotation}>
+    // Slow down the float intensity when they are scattered in background
+    <Float speed={isCelebrated ? 1 : 2} rotationIntensity={0.2} floatIntensity={isCelebrated ? 0.2 : 0.5}>
+      {/* Use animated.group to apply spring position */}
+      <animated.group position={pos} rotation={rotation}>
+        {/* Frame with animated transparency */}
         <mesh position={[0, 0, -0.05]}>
            <boxGeometry args={[1.6, 2.1, 0.1]} />
-           <meshStandardMaterial color="gold" metalness={0.8} roughness={0.2} />
+           <animated.meshStandardMaterial color="gold" metalness={0.8} roughness={0.2} transparent opacity={opacitySpring} />
         </mesh>
-        <Image url={url} scale={[1.5, 2]} transparent opacity={0.95} />
-      </group>
+        {/* Image with animated opacity */}
+        <Image url={url} scale={[1.5, 2]} transparent opacity={opacitySpring} />
+      </animated.group>
     </Float>
   );
 }
@@ -177,9 +183,18 @@ function LoveLetterButton({ onClick }) {
 export default function ValentineDay({ onBack }) {
   const { camera, viewport } = useThree();
   const [isOpen, setIsOpen] = useState(false);
-  const [isCelebrated, setIsCelebrated] = useState(false); // New State for Finale
+  const [isCelebrated, setIsCelebrated] = useState(false);
   
   const audioRef = useRef(new Audio('/love.mp3')); 
+
+  // 3. PRE-CALCULATE SCATTERED POSITIONS ONCE
+  const scatteredPositions = useMemo(() => {
+    return MEMORIES.map(() => [
+        (Math.random() - 0.5) * 25, // Wide X spread
+        (Math.random() * 10) + 2,   // High Y spread
+        (Math.random() * -15) - 5   // Deep Z background
+    ]);
+  }, []);
 
   // --- AUDIO LOGIC ---
   useEffect(() => {
@@ -188,8 +203,6 @@ export default function ValentineDay({ onBack }) {
 
     audio.volume = 1;
     audio.loop = true;
-    
-    // --- CUTTING STARTING 17 SECONDS ---
     audio.currentTime = 17; 
 
     const playPromise = audio.play();
@@ -197,7 +210,6 @@ export default function ValentineDay({ onBack }) {
       playPromise.catch(e => console.log("Audio play failed (user interaction needed):", e));
     }
 
-    // Cleanup
     return () => {
       audio.pause();
       audio.currentTime = 0;
@@ -206,18 +218,15 @@ export default function ValentineDay({ onBack }) {
 
   // --- CAMERA POSITION ---
   useEffect(() => {
-    // If Celebrated, pull camera back more to see fireworks
+    // Pull camera back significantly when celebrated to see scattered photos
     const baseZ = viewport.width < 5 ? 14 : 9;
-    const zPos = isCelebrated ? baseZ + 5 : baseZ; 
-    const yPos = isCelebrated ? 4 : (viewport.width < 5 ? 3 : 2);
+    const zPos = isCelebrated ? baseZ + 10 : baseZ; 
+    const yPos = isCelebrated ? 6 : (viewport.width < 5 ? 3 : 2);
     
     camera.position.set(0, yPos, zPos);
-    
-    // Look slightly up if celebrated
-    camera.lookAt(0, isCelebrated ? 3 : 0, 0);
+    camera.lookAt(0, isCelebrated ? 4 : 0, 0);
   }, [camera, viewport.width, isCelebrated]);
 
-  // --- HANDLER FOR "YES" ---
   const handleYes = () => {
     setIsOpen(false);
     setIsCelebrated(true);
@@ -244,30 +253,36 @@ export default function ValentineDay({ onBack }) {
           minPolarAngle={Math.PI / 3} 
       />
 
-      {/* The Gazebo always stays */}
       <Gazebo />
 
-      {/* Show Memories & Button ONLY if NOT celebrating */}
-      {!isOpen && !isCelebrated && MEMORIES.map((url, i) => {
+      {/* --- MEMORIES: UPDATED LOGIC --- */}
+      {/* Show memories if letter is closed. Pass target position based on celebration state. */}
+      {!isOpen && MEMORIES.map((url, i) => {
+         // 1. Calculate Spiral Position (Normal State)
          const angle = (i / MEMORIES.length) * Math.PI * 2;
          const radius = viewport.width < 5 ? 2.8 : 3.5; 
          const y = -1.5 + (i * 0.8);
+         const spiralPos = [Math.cos(angle) * radius, y, Math.sin(angle) * radius];
+
+         // 2. Determine Target based on state
+         const targetPos = isCelebrated ? scatteredPositions[i] : spiralPos;
+
          return (
             <FloatingMemory 
                 key={i} 
                 url={url} 
-                position={[Math.cos(angle) * radius, y, Math.sin(angle) * radius]} 
+                targetPosition={targetPos} // Pass target
                 rotation={[0, -angle, 0]} 
+                isCelebrated={isCelebrated} // Pass state for fading
             />
          );
       })}
 
       {!isOpen && !isCelebrated && <LoveLetterButton onClick={handleOpen} />}
 
-      {/* THE CELEBRATION (Only after YES) */}
       {isCelebrated && <Celebration />}
 
-      {/* THE LETTER MODAL */}
+      {/* --- LETTER MODAL --- */}
       {isOpen && (
         <Html fullscreen style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
             <div className="letter-container" style={{
@@ -275,7 +290,7 @@ export default function ValentineDay({ onBack }) {
                 background: 'rgba(255, 250, 240, 0.95)',
                 padding: '40px', 
                 borderRadius: '10px',
-                width: 'min(90%, 600px)', // Responsive Width
+                width: 'min(90%, 600px)',
                 maxHeight: '90vh',
                 overflowY: 'auto',
                 boxShadow: '0 0 50px rgba(255, 0, 85, 0.5)',
