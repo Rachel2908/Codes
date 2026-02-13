@@ -1,0 +1,270 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import { Html, Image, Text, Float, Sparkles, Environment, Stars } from '@react-three/drei';
+import * as THREE from 'three';
+
+// --- CONFIGURATION: YOUR MEMORIES ---
+// REPLACE THESE URLs WITH YOUR OWN PHOTOS in the 'public' folder!
+// Example: "/photo1.jpg", "/photo2.jpg", etc.
+const MEMORIES = [
+  "https://picsum.photos/id/1011/300/400", 
+  "https://picsum.photos/id/1015/300/400", 
+  "https://picsum.photos/id/1025/300/400", 
+  "https://picsum.photos/id/1012/300/400", 
+  "https://picsum.photos/id/1027/300/400", 
+  "https://picsum.photos/id/237/300/400", 
+];
+
+// --- COMPONENT: Procedural Gazebo ---
+function Gazebo() {
+  return (
+    <group position={[0, -2.5, 0]}>
+       {/* Floor */}
+       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+         <cylinderGeometry args={[4, 4, 0.2, 32]} />
+         <meshStandardMaterial color="#f0e6d2" roughness={0.5} />
+       </mesh>
+       
+       {/* Pillars */}
+       {[0, 1, 2, 3, 4, 5].map((i) => {
+         const angle = (i / 6) * Math.PI * 2;
+         return (
+           <mesh key={i} position={[Math.cos(angle) * 3, 2, Math.sin(angle) * 3]}>
+             <cylinderGeometry args={[0.1, 0.15, 4, 16]} />
+             <meshStandardMaterial color="#fff" />
+           </mesh>
+         );
+       })}
+
+       {/* Roof (Dome) */}
+       <mesh position={[0, 4.5, 0]}>
+         <coneGeometry args={[4.5, 2, 32]} />
+         <meshStandardMaterial color="#ff0055" roughness={0.3} />
+       </mesh>
+    </group>
+  );
+}
+
+// --- COMPONENT: Floating Memory Photo ---
+function FloatingMemory({ url, position, rotation }) {
+  return (
+    <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5} floatingRange={[0, 0.5]}>
+      <group position={position} rotation={rotation}>
+        {/* Frame */}
+        <mesh position={[0, 0, -0.05]}>
+           <boxGeometry args={[1.6, 2.1, 0.1]} />
+           <meshStandardMaterial color="gold" metalness={0.8} roughness={0.2} />
+        </mesh>
+        
+        {/* Photo */}
+        <Image url={url} scale={[1.5, 2]} transparent opacity={0.95} />
+      </group>
+    </Float>
+  );
+}
+
+// --- COMPONENT: Love Letter Button ---
+function LoveLetterButton({ onClick }) {
+  const mesh = useRef();
+  
+  useFrame((state) => {
+    if (mesh.current) {
+       mesh.current.rotation.y += 0.01;
+       mesh.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 2) * 0.1);
+    }
+  });
+
+  return (
+    <group onClick={onClick} position={[0, 0, 1.5]}> {/* Moved forward slightly */}
+       <Float speed={4} floatIntensity={2}>
+           <mesh ref={mesh}>
+              <extrudeGeometry args={[(() => {
+                  const shape = new THREE.Shape();
+                  const x = 0, y = 0;
+                  shape.moveTo(x + 0.5, y + 0.5);
+                  shape.bezierCurveTo(x + 0.5, y + 0.5, x + 0.4, y, x, y);
+                  shape.bezierCurveTo(x - 0.6, y, x - 0.6, y + 0.7, x - 0.6, y + 0.7);
+                  shape.bezierCurveTo(x - 0.6, y + 1.1, x - 0.3, y + 1.54, x + 0.5, y + 1.9);
+                  shape.bezierCurveTo(x + 1.2, y + 1.54, x + 1.6, y + 1.1, x + 1.6, y + 0.7);
+                  shape.bezierCurveTo(x + 1.6, y + 0.7, x + 1.6, y, x + 1.0, y);
+                  shape.bezierCurveTo(x + 0.7, y, x + 0.5, y + 0.5, x + 0.5, y + 0.5);
+                  return shape;
+              })(), { depth: 0.2, bevelEnabled: true, bevelThickness: 0.1 }]} />
+              <meshStandardMaterial color="#ff0055" emissive="#ff0022" emissiveIntensity={0.5} />
+           </mesh>
+           <Html position={[0, -1.2, 0]} center pointerEvents="none">
+             <div style={{ color: 'white', fontFamily: 'serif', fontSize: '1.2rem', textShadow: '0 0 5px black', whiteSpace: 'nowrap' }}>
+               Click Me ❤️
+             </div>
+           </Html>
+       </Float>
+       <pointLight distance={3} intensity={2} color="red" />
+    </group>
+  );
+}
+
+// --- MAIN EXPORT ---
+export default function ValentineDay({ onBack }) {
+  const { camera, viewport } = useThree();
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // Audio Ref (Optional: Add 'song.mp3' to public folder)
+  const audioRef = useRef(new Audio('/song.mp3')); 
+
+  // --- RESPONSIVE CAMERA LOGIC ---
+  useEffect(() => {
+    // If screen is narrow (Mobile < 5), move camera back to 14
+    // If screen is wide (Desktop), move camera to 9
+    const zPos = viewport.width < 5 ? 14 : 9;
+    const yPos = viewport.width < 5 ? 3 : 2;
+    
+    camera.position.set(0, yPos, zPos);
+    camera.lookAt(0, 0, 0);
+  }, [camera, viewport.width]);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    // Play music
+    audioRef.current.volume = 0.5;
+    audioRef.current.loop = true;
+    audioRef.current.play().catch(e => console.log("Audio play failed (interaction needed):", e));
+  };
+
+  const handleClose = () => {
+      setIsOpen(false);
+      audioRef.current.pause();
+  };
+
+  return (
+    <group>
+      <color attach="background" args={['#100010']} />
+      
+      {/* 1. ATMOSPHERE */}
+      <Environment preset="sunset" />
+      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade />
+      <Sparkles count={200} scale={[10, 10, 10]} size={5} speed={0.5} opacity={0.5} color="gold" />
+      <ambientLight intensity={0.2} />
+      
+      {/* 2. SCENE STRUCTURE */}
+      <Gazebo />
+
+      {/* 3. MEMORY SPIRAL */}
+      {!isOpen && MEMORIES.map((url, i) => {
+         // Spiral Calculation
+         const angle = (i / MEMORIES.length) * Math.PI * 2;
+         // Tighter radius on mobile so they don't go off screen
+         const radius = viewport.width < 5 ? 2.8 : 3.5; 
+         const y = -1.5 + (i * 0.8);
+         
+         return (
+            <FloatingMemory 
+                key={i} 
+                url={url} 
+                position={[Math.cos(angle) * radius, y, Math.sin(angle) * radius]} 
+                rotation={[0, -angle, 0]} // Face center
+            />
+         );
+      })}
+
+      {/* 4. CENTRAL HEART BUTTON */}
+      {!isOpen && <LoveLetterButton onClick={handleOpen} />}
+
+      {/* 5. THE FINAL LETTER (Responsive HTML Overlay) */}
+      {isOpen && (
+        <Html fullscreen style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
+            <div className="letter-container" style={{
+                pointerEvents: 'auto',
+                background: 'rgba(255, 250, 240, 0.95)',
+                padding: '40px', 
+                borderRadius: '10px',
+                width: 'min(90%, 600px)', // Responsive Width
+                maxHeight: '90vh',        // Prevent scrolling issues
+                overflowY: 'auto',        // Scroll if text is too long
+                boxShadow: '0 0 50px rgba(255, 0, 85, 0.5)',
+                textAlign: 'center', 
+                fontFamily: 'serif',
+                position: 'relative', 
+                animation: 'fadeIn 1s ease'
+            }}>
+                {/* Close X */}
+                <button 
+                    onClick={handleClose}
+                    style={{
+                        position: 'absolute', top: '10px', right: '15px',
+                        background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#555'
+                    }}
+                >✖</button>
+
+                {/* Header */}
+                <h1 style={{ 
+                    color: '#ff0055', 
+                    fontSize: 'clamp(2rem, 5vw, 3rem)', // Responsive Font
+                    marginBottom: '20px',
+                    lineHeight: '1.2'
+                }}>
+                    To My Valentine
+                </h1>
+                
+                {/* Body Text */}
+                <p style={{ 
+                    fontSize: 'clamp(1rem, 3vw, 1.25rem)', // Responsive Font
+                    lineHeight: '1.6', 
+                    color: '#333', 
+                    marginBottom: '30px' 
+                }}>
+                    Every line of code I wrote for this, I wrote thinking of you.<br/><br/>
+                    You are the CSS to my HTML,<br/>
+                    The Logic to my Controller,<br/>
+                    The Heart of my Life.<br/><br/>
+                    I love you more than words (or code) can say.
+                </p>
+
+                {/* Question */}
+                <h2 style={{ 
+                    fontFamily: 'cursive', color: '#8b0000', 
+                    fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', // Responsive Font
+                    marginBottom: '30px'
+                }}>
+                    Will you be my Valentine?
+                </h2>
+                
+                {/* Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                    <button onClick={() => alert("YAY! ❤️")} style={{
+                        padding: '12px 30px', background: '#ff0055', color: 'white',
+                        border: 'none', borderRadius: '50px', fontSize: '1.2rem', cursor: 'pointer',
+                        boxShadow: '0 4px 10px rgba(255,0,85,0.3)'
+                    }}>
+                        YES!
+                    </button>
+                    
+                    <button onClick={handleClose} style={{
+                         padding: '12px 30px', background: '#ddd', color: '#555',
+                         border: 'none', borderRadius: '50px', fontSize: '1.2rem', cursor: 'pointer'
+                    }}>
+                        Replay Journey
+                    </button>
+                </div>
+            </div>
+            <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+        </Html>
+      )}
+
+      {/* Back Button (Bottom Right) */}
+      {!isOpen && (
+        <Html fullscreen style={{ pointerEvents: 'none' }}>
+           <div style={{ position: 'absolute', bottom: '20px', right: '20px', pointerEvents: 'auto' }}>
+               <button onClick={onBack} style={{
+                   padding: '10px 20px', borderRadius: '20px', 
+                   border: '1px solid white', background: 'rgba(0,0,0,0.5)', 
+                   color: 'white', cursor: 'pointer'
+               }}>
+                   Go Back
+               </button>
+           </div>
+        </Html>
+      )}
+
+    </group>
+  );
+}
