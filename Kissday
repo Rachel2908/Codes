@@ -1,0 +1,222 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import { Html, Float, Cloud, Text } from '@react-three/drei';
+import * as THREE from 'three';
+
+// --- ASSETS: 3D Heart Shape ---
+const heartShape = new THREE.Shape();
+const x = 0, y = 0;
+heartShape.moveTo(x + 0.5, y + 0.5);
+heartShape.bezierCurveTo(x + 0.5, y + 0.5, x + 0.4, y, x, y);
+heartShape.bezierCurveTo(x - 0.6, y, x - 0.6, y + 0.7, x - 0.6, y + 0.7);
+heartShape.bezierCurveTo(x - 0.6, y + 1.1, x - 0.3, y + 1.54, x + 0.5, y + 1.9);
+heartShape.bezierCurveTo(x + 1.2, y + 1.54, x + 1.6, y + 1.1, x + 1.6, y + 0.7);
+heartShape.bezierCurveTo(x + 1.6, y + 0.7, x + 1.6, y, x + 1.0, y);
+heartShape.bezierCurveTo(x + 0.7, y, x + 0.5, y + 0.5, x + 0.5, y + 0.5);
+
+// --- COMPONENT: The Target Heart ---
+function TargetHeart({ hitCount }) {
+  const mesh = useRef();
+  
+  useFrame((state) => {
+    if (mesh.current) {
+      // Beat faster with more hits
+      const baseSpeed = 3;
+      const extraSpeed = Math.min(hitCount * 0.2, 10);
+      const speed = baseSpeed + extraSpeed;
+      
+      // Grow slightly with hits
+      const scaleBase = 1.5 + (Math.min(hitCount, 50) * 0.01); 
+      const beat = Math.sin(state.clock.elapsedTime * speed) * 0.15;
+      
+      mesh.current.scale.setScalar(scaleBase + beat);
+    }
+  });
+
+  return (
+    <group position={[0, 0, -10]}>
+      <mesh ref={mesh} rotation={[0, 0, Math.PI]}>
+        <extrudeGeometry args={[heartShape, { depth: 0.5, bevelEnabled: true, bevelThickness: 0.1 }]} />
+        <meshStandardMaterial 
+            color="#ff0055" 
+            emissive="#ff0022"
+            emissiveIntensity={0.5 + (hitCount * 0.02)} 
+            roughness={0.2}
+            metalness={0.8}
+        />
+      </mesh>
+      <pointLight distance={5} intensity={2 + hitCount * 0.1} color="red" />
+    </group>
+  );
+}
+
+// --- COMPONENT: Flying Kiss Projectile ---
+function FlyingKiss({ id, startPos, onHit }) {
+  const ref = useRef();
+  
+  // Use a ref to track position for performance (no state updates)
+  const pos = useRef(new THREE.Vector3(...startPos));
+  const speed = 0.25;
+
+  useFrame(() => {
+    if (ref.current) {
+      // Move forward
+      pos.current.z -= speed;
+      
+      // Curve towards center (0,0)
+      pos.current.x += (0 - pos.current.x) * 0.02;
+      pos.current.y += (0 - pos.current.y) * 0.02;
+
+      // Apply position
+      ref.current.position.copy(pos.current);
+
+      // Hit Check
+      if (pos.current.z < -9) {
+        onHit(id);
+      }
+    }
+  });
+
+  return (
+    <group ref={ref} position={startPos}>
+      <Text fontSize={1.5} color="#ff0055">💋</Text>
+    </group>
+  );
+}
+
+// --- COMPONENT: Moving Tunnel Environment (Responsive) ---
+function Tunnel() {
+  const group = useRef();
+  const { viewport } = useThree();
+
+  // Dynamic Width: On mobile (viewport.width < 5), bring clouds closer
+  const sideX = viewport.width < 5 ? 2.5 : 5;
+
+  // Move clouds to simulate flying
+  useFrame(() => {
+    if (group.current) {
+        group.current.position.z += 0.15; // Flight speed
+        if (group.current.position.z > 10) {
+            group.current.position.z = 0; // Loop
+        }
+    }
+  });
+
+  return (
+    <group ref={group}>
+        {/* Left Clouds */}
+        <Cloud position={[-sideX, 2, -10]} opacity={0.5} speed={0.4} segments={5} bounds={[2, 1, 1]} />
+        <Cloud position={[-sideX, -2, -20]} opacity={0.5} speed={0.4} segments={5} bounds={[2, 1, 1]} />
+        
+        {/* Right Clouds */}
+        <Cloud position={[sideX, -2, -15]} opacity={0.5} speed={0.4} segments={5} bounds={[2, 1, 1]} />
+        <Cloud position={[sideX, 2, -5]} opacity={0.5} speed={0.4} segments={5} bounds={[2, 1, 1]} />
+    </group>
+  );
+}
+
+// --- MAIN EXPORT ---
+export default function KissDay({ onBack }) {
+  const { viewport, camera } = useThree();
+  const [kisses, setKisses] = useState([]); // Array of active kisses
+  const [hits, setHits] = useState(0);
+
+  useEffect(() => {
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, -10);
+  }, [camera]);
+
+  const spawnKiss = () => {
+    // 1. Random X within screen width (Responsive)
+    // We multiply by 0.4 to keep it within the central "lane"
+    const randomX = (Math.random() - 0.5) * viewport.width * 0.6;
+    
+    // 2. Start from bottom
+    const startY = -viewport.height / 2;
+
+    const newKiss = {
+      id: Math.random(), // Unique ID
+      position: [randomX, startY, 4] // Start close to camera
+    };
+    
+    setKisses((prev) => [...prev, newKiss]);
+  };
+
+  const handleHit = (id) => {
+    setHits((prev) => prev + 1);
+    // Remove kiss from array to save memory
+    setKisses((prev) => prev.filter((k) => k.id !== id));
+  };
+
+  return (
+    <group>
+      <color attach="background" args={['#220011']} />
+      <ambientLight intensity={0.5} />
+      <spotLight position={[10, 10, 10]} angle={0.5} penumbra={1} />
+      
+      {/* 1. TUNNEL */}
+      <Tunnel />
+      
+      {/* 2. TARGET HEART */}
+      <TargetHeart hitCount={hits} />
+
+      {/* 3. FLYING KISSES */}
+      {kisses.map((kiss) => (
+        <FlyingKiss 
+            key={kiss.id} 
+            id={kiss.id} 
+            startPos={kiss.position} 
+            onHit={handleHit} 
+        />
+      ))}
+
+      {/* 4. UI LAYER */}
+      <Html fullscreen>
+        <div 
+            style={{ 
+                width: '100%', height: '100%', 
+                cursor: 'pointer',
+                touchAction: 'none' // Prevent scrolling on mobile tap
+            }}
+            onClick={spawnKiss}
+        >
+            {/* Responsive Text: clamp(min, preferred, max) */}
+            <div style={{ 
+                position: 'absolute', top: '15%', width: '100%', 
+                textAlign: 'center', pointerEvents: 'none' 
+            }}>
+                <h1 style={{ 
+                    fontFamily: 'serif', color: '#ff0055', 
+                    fontSize: 'clamp(2rem, 8vw, 4rem)', // <--- RESPONSIVE FONT
+                    textShadow: '0 0 10px white', margin: 0 
+                }}>
+                    {hits * 100} Love Points
+                </h1>
+                <p style={{ 
+                    color: 'white', 
+                    fontSize: 'clamp(1rem, 4vw, 1.5rem)',
+                    opacity: 0.8 
+                }}>
+                    Tap anywhere to send a kiss! 💋
+                </p>
+            </div>
+
+            {/* Back Button */}
+            <div style={{ position: 'absolute', bottom: '20px', right: '20px', pointerEvents: 'auto' }}>
+                 <button onClick={(e) => { e.stopPropagation(); onBack(); }} style={{
+                     padding: '12px 24px', borderRadius: '30px', 
+                     border: '2px solid #ff0055',
+                     background: 'rgba(255,255,255,0.9)', 
+                     color: '#ff0055', cursor: 'pointer', fontFamily: 'serif',
+                     fontWeight: 'bold', fontSize: '1rem',
+                     boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+                 }}>
+                     Go Back
+                 </button>
+            </div>
+        </div>
+      </Html>
+
+    </group>
+  );
+}
