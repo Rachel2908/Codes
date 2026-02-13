@@ -5,12 +5,12 @@ import * as THREE from 'three';
 
 // --- CONFIGURATION: YOUR MEMORIES ---
 const MEMORIES = [
-  "https://picsum.photos/id/1011/300/400", 
-  "https://picsum.photos/id/1015/300/400", 
-  "https://picsum.photos/id/1025/300/400", 
-  "https://picsum.photos/id/1012/300/400", 
-  "https://picsum.photos/id/1027/300/400", 
-  "https://picsum.photos/id/237/300/400", 
+  "/images/1.jpg", 
+  "/images/7.jpg", 
+  "/images/3.jpg", 
+  "/images/4.jpg", 
+  "/images/5.jpg", 
+  "/images/2.jpg", 
 ];
 
 // --- COMPONENT: Procedural Gazebo (Now Animated) ---
@@ -28,7 +28,7 @@ function Gazebo() {
   return (
     <group ref={group} position={[0, -2.5, 0]}>
        {/* Floor */}
-       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+       <mesh rotation={[-Math.PI / 1, 0, 0]} receiveShadow>
          <cylinderGeometry args={[4, 4, 0.2, 32]} />
          <meshStandardMaterial color="#f0e6d2" roughness={0.5} />
        </mesh>
@@ -83,7 +83,7 @@ function LoveLetterButton({ onClick }) {
   });
 
   return (
-    <group onClick={onClick} position={[0, 0, 1.5]}>
+    <group onClick={onClick} position={[0, -1, -2]}>
        <Float speed={4} floatIntensity={2}>
            <mesh ref={mesh}>
               <extrudeGeometry args={[(() => {
@@ -115,7 +115,7 @@ function LoveLetterButton({ onClick }) {
 export default function ValentineDay({ onBack }) {
   const { camera, viewport } = useThree();
   const [isOpen, setIsOpen] = useState(false);
-  const audioRef = useRef(new Audio('/song.mp3')); 
+  const audioRef = useRef(new Audio('/love.mp3')); 
 
   useEffect(() => {
     const zPos = viewport.width < 5 ? 14 : 9;
@@ -126,15 +126,35 @@ export default function ValentineDay({ onBack }) {
 
   const handleOpen = () => {
     setIsOpen(true);
-    audioRef.current.volume = 0.5;
-    audioRef.current.loop = true;
-    audioRef.current.play().catch(e => console.log("Audio play failed:", e));
+    // audioRef.current.volume = 1;
+    // audioRef.current.loop = true;
+    // audioRef.current.play().catch(e => console.log("Audio play failed:", e));
   };
 
   const handleClose = () => {
       setIsOpen(false);
-      audioRef.current.pause();
+    //   audioRef.current.pause();
   };
+
+useEffect(() => {
+  const audio = audioRef.current;
+  if (!audio) return;
+
+  audio.volume = 1;
+  audio.loop = true;
+
+  const playPromise = audio.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(e => console.log("Audio play failed:", e));
+  }
+
+  // Cleanup function stays inside useEffect so it can access 'audio'
+  return () => {
+    audio.pause();
+    audio.currentTime = 17;
+  };
+}, []);
+
 
   return (
     <group>
@@ -204,7 +224,7 @@ export default function ValentineDay({ onBack }) {
                     To My Valentine
                 </h1>
                 
-                <p style={{ fontSize: 'clamp(1rem, 3vw, 1.25rem)', lineHeight: '1.6', color: '#333', marginBottom: '30px' }}>
+                <p style={{ fontSize: 'clamp(1rem, 3vw, 1rem)', lineHeight: '1.6', color: '#333', marginBottom: '30px' }}>
                     Every line of code I wrote for this, I wrote thinking of you.<br/><br/>
                     You are the CSS to my HTML,<br/>
                     The Logic to my Controller,<br/>
@@ -219,13 +239,13 @@ export default function ValentineDay({ onBack }) {
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap' }}>
                     <button onClick={() => alert("YAY! ❤️")} style={{
                         padding: '12px 30px', background: '#ff0055', color: 'white',
-                        border: 'none', borderRadius: '50px', fontSize: '1.2rem', cursor: 'pointer',
+                        border: 'none', borderRadius: '50px', fontSize: '1rem', cursor: 'pointer',
                         boxShadow: '0 4px 10px rgba(255,0,85,0.3)'
                     }}>YES!</button>
                     
                     <button onClick={handleClose} style={{
                          padding: '12px 30px', background: '#ddd', color: '#555',
-                         border: 'none', borderRadius: '50px', fontSize: '1.2rem', cursor: 'pointer'
+                         border: 'none', borderRadius: '50px', fontSize: '1rem', cursor: 'pointer'
                     }}>Replay Journey</button>
                 </div>
             </div>
