@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { Html, Float, Environment, Sparkles, useTexture } from '@react-three/drei';
-import { useSpring, animated } from '@react-spring/three';
+import { useSpring, animated} from '@react-spring/three';
 import * as THREE from 'three';
 
 // --- CONFIGURATION ---
@@ -63,8 +63,8 @@ function Hugger({
         </mesh>
 
         {/* FACE */}
-        <mesh position={[isLeft ? 0.85 : -0.85, 0.1, 0]} rotation={[0, isLeft ? 1.57 : -1.57, 0]}>
-          <circleGeometry args={[0.6, 32]} />
+        <mesh position={[isLeft ? 1 : -1, 0.1, 0]} rotation={[0, isLeft ? 1.5 : -1.5, 0]}>
+          <circleGeometry args={[1.5, 32]} />
           <meshBasicMaterial map={texture} transparent />
         </mesh>
 
@@ -156,8 +156,8 @@ export default function HugDay({ onBack }) {
       {/* --- CHARACTERS (Responsive Group) --- */}
       <group scale={characterScale}>
           <Hugger 
-            image="https://robohash.org/boy?set=set4" // Replace with "/face1.png"
-            color={BOY_COLOR} 
+            image="./face2.png" // Replace with "/face1.png"
+            color={GIRL_COLOR} 
             startX={-responsiveX} // <--- Dynamic X
             isLeft={true} 
             isFinished={isFinished}
@@ -165,8 +165,8 @@ export default function HugDay({ onBack }) {
           />
           
           <Hugger 
-            image="https://robohash.org/girl?set=set4" // Replace with "/face2.png"
-            color={GIRL_COLOR} 
+            image="./face1.png" // Replace with "/face2.png"
+            color={BOY_COLOR} 
             startX={responsiveX} // <--- Dynamic X
             isLeft={false} 
             isFinished={isFinished}
